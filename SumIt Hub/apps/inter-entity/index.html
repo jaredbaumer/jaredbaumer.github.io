@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inter-Entity Reconciliation — SumIt</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --primary:   #0F4C81;
+      --accent:    #00A878;
+      --light-bg:  #EEF7F3;
+      --dark-text: #1A202C;
+      --pass:      #16A34A;
+      --fail:      #DC2626;
+      --warn:      #D97706;
+      --border:    #CBD5E0;
+      --muted:     #718096;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           background: #F7FAFC; color: var(--dark-text); font-size: 14px; }
+
+    .topbar {
+      background: var(--primary); color: white;
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 24px; height: 52px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .topbar a.back { color: rgba(255,255,255,.8); text-decoration: none; font-size: 13px;
+      display: flex; align-items: center; gap: 4px; transition: color .15s; }
+    .topbar a.back:hover { color: white; }
+    .topbar .divider { color: rgba(255,255,255,.35); font-size: 16px; }
+    .topbar h1 { font-size: 15px; font-weight: 600; letter-spacing: .01em; }
+
+    main { max-width: 960px; margin: 0 auto; padding: 32px 24px 80px; }
+
+    .step { background: white; border: 1px solid var(--border); border-radius: 10px;
+            margin-bottom: 20px; overflow: hidden; }
+    .step-header { background: var(--light-bg); padding: 14px 20px;
+      display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+    .step-num { background: var(--primary); color: white; width: 26px; height: 26px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .step-title { font-weight: 600; font-size: 14px; color: var(--primary); }
+    .step-body { padding: 20px; }
+
+    .drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 36px 20px;
+      text-align: center; cursor: pointer; transition: border-color .2s, background .2s; }
+    .drop-zone:hover, .drop-zone.over { border-color: var(--accent); background: var(--light-bg); }
+    .drop-zone svg { color: var(--muted); margin-bottom: 8px; }
+    .drop-zone p { color: var(--muted); font-size: 13px; }
+    .drop-zone p strong { color: var(--primary); }
+    #file-input { display: none; }
+
+    .btn { display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; transition: opacity .15s, background .15s; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:not(:disabled):hover { background: #009b6d; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--accent); color: var(--accent); }
+    .btn-outline:not(:disabled):hover { background: var(--light-bg); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+    .form-group select { width: 100%; max-width: 480px; padding: 8px 12px;
+      border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+      color: var(--dark-text); background: white; }
+    .form-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    .meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px; margin-bottom: 16px; }
+    .meta-card { background: var(--light-bg); border-radius: 8px; padding: 12px 14px; }
+    .meta-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .meta-card .value { font-size: 22px; font-weight: 700; color: var(--primary); margin-top: 2px; }
+
+    .tbl-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    thead tr { background: var(--primary); color: white; }
+    thead th { padding: 9px 10px; text-align: left; font-weight: 600; white-space: nowrap; }
+    tbody tr { cursor: default; }
+    tbody tr:nth-child(even) { background: #F7FAFC; }
+    tbody tr:hover { background: var(--light-bg); }
+    tbody td { padding: 7px 10px; border-top: 1px solid var(--border); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .row-count { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+    .diff-zero   { color: var(--pass); font-weight: 600; }
+    .diff-nonzero{ color: var(--fail); font-weight: 600; }
+    .diff-small  { color: var(--warn); font-weight: 600; }
+
+    .section-title { font-size: 13px; font-weight: 700; color: var(--primary);
+      margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+    .export-bar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+
+    .tab-bar { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+    .tab-btn { padding: 9px 18px; border: none; background: none; cursor: pointer;
+      font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: color .15s, border-color .15s; }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--accent); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-pass { background: #DCFCE7; color: var(--pass); }
+    .badge-fail { background: #FEE2E2; color: var(--fail); }
+    .badge-warn { background: #FEF9C3; color: var(--warn); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<nav class="topbar">
+  <a class="back" href="../../index.html">← Hub</a>
+  <span class="divider">|</span>
+  <h1>Inter-Entity Reconciliation</h1>
+</nav>
+
+<main>
+
+  <!-- STEP 1: Upload -->
+  <div class="step" id="step1">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div class="step-title">Upload Transaction CSV</div>
+    </div>
+    <div class="step-body">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p><strong>Click to browse</strong> or drag &amp; drop your journal register CSV</p>
+        <p id="file-name-display" style="margin-top:6px;font-weight:600;color:var(--primary)"></p>
+      </div>
+      <input type="file" id="file-input" accept=".csv" />
+      <p style="font-size:12px;color:var(--muted);margin-top:10px;">
+        Required columns: <code>Entity · Account · Effective At · Debits · Credits · Accounting Amount · Account Code Group · Account Code</code>
+      </p>
+    </div>
+  </div>
+
+  <!-- STEP 2: Configure -->
+  <div class="step hidden" id="step2">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div class="step-title">Configure Inter-Entity Accounts</div>
+    </div>
+    <div class="step-body">
+      <div class="meta-grid" id="summary-grid"></div>
+
+      <div class="form-group">
+        <label>Due To Account (Liability — typically account 2xxxxx)</label>
+        <select id="account1-select"></select>
+        <p class="form-hint">Usually "220000 - Office Family Due To" or similar credit-balance account</p>
+      </div>
+      <div class="form-group">
+        <label>Due From Account (Asset — typically account 1xxxxx)</label>
+        <select id="account2-select"></select>
+        <p class="form-hint">Usually "120000 - Office Family Due From" or similar debit-balance account</p>
+      </div>
+
+      <button class="btn btn-primary" id="btn-reconcile">Run Reconciliation</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Results -->
+  <div class="step hidden" id="step3">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div class="step-title">Reconciliation Results</div>
+    </div>
+    <div class="step-body">
+
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="summary">Summary</button>
+        <button class="tab-btn" data-tab="drilldown">Drilldown by Date</button>
+        <button class="tab-btn" data-tab="excluded">Excluded Rows</button>
+      </div>
+
+      <!-- Summary tab -->
+      <div class="tab-content active" id="tab-summary">
+        <div class="meta-grid" id="result-summary-grid"></div>
+        <div class="export-bar">
+          <button class="btn btn-outline btn-sm" id="btn-export-summary">↓ Export Summary CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Main Entity</th>
+                <th>Other Entity</th>
+                <th id="col-a1-header" class="num">Due To Balance</th>
+                <th id="col-a2-header" class="num">Due From Balance</th>
+                <th class="num">Difference</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="summary-body"></tbody>
+          </table>
+        </div>
+        <p class="row-count" id="summary-count"></p>
+      </div>
+
+      <!-- Drilldown tab -->
+      <div class="tab-content" id="tab-drilldown">
+        <div class="export-bar">
+          <button class="btn btn-outline btn-sm" id="btn-export-drilldown">↓ Export Drilldown CSV</button>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Filter by Entity Pair</label>
+          <select id="filter-pair" style="max-width:400px">
+            <option value="">All pairs</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Main Entity</th><th>Other Entity</th><th>Date</th>
+                <th>Account</th><th>Description</th>
+                <th class="num">Debits</th><th class="num">Credits</th>
+                <th class="num">Accounting Amount</th>
+              </tr>
+            </thead>
+            <tbody id="drilldown-body"></tbody>
+          </table>
+        </div>
+        <p class="row-count" id="drilldown-count"></p>
+      </div>
+
+      <!-- Excluded tab -->
+      <div class="tab-content" id="tab-excluded">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Rows filtered out because they don't match the selected accounts or Account Code Group ≠ "Entities".
+        </p>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Entity</th><th>Account</th><th>Date</th>
+                <th>Account Code Group</th><th>Account Code</th>
+                <th class="num">Accounting Amount</th><th>Reason Excluded</th>
+              </tr>
+            </thead>
+            <tbody id="excluded-body"></tbody>
+          </table>
+        </div>
+        <p class="row-count" id="excluded-count"></p>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─────────────────────────────────────────
+// State
+// ─────────────────────────────────────────
+let allRows      = [];   // parsed CSV as array of objects
+let summaryData  = [];
+let drilldownData= [];
+let excludedData = [];
+
+// ─────────────────────────────────────────
+// Page reset on back-button
+// ─────────────────────────────────────────
+window.addEventListener('pageshow', () => {
+  allRows = []; summaryData = []; drilldownData = []; excludedData = [];
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-name-display').textContent = '';
+  ['step2','step3'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  setActiveTab('summary');
+});
+
+// ─────────────────────────────────────────
+// File upload
+// ─────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  if (!file.name.endsWith('.csv')) { alert('Please upload a .csv file.'); return; }
+  document.getElementById('file-name-display').textContent = '📄 ' + file.name;
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete(results) {
+      allRows = results.data;
+      validateAndShowConfigure(results.meta.fields || []);
+    },
+    error(err) { alert('CSV parse error: ' + err.message); }
+  });
+}
+
+const REQUIRED_COLS = ['Entity','Account','Effective At','Debits','Credits',
+                       'Accounting Amount','Account Code Group','Account Code'];
+
+function validateAndShowConfigure(cols) {
+  const missing = REQUIRED_COLS.filter(c => !cols.includes(c));
+  if (missing.length) {
+    alert('Missing required columns: ' + missing.join(', '));
+    return;
+  }
+
+  // Populate summary
+  const entities = [...new Set(allRows.map(r => r['Entity']).filter(Boolean))];
+  const accounts = [...new Set(allRows.map(r => r['Account']).filter(Boolean))].sort();
+  const grid = document.getElementById('summary-grid');
+  grid.innerHTML = `
+    <div class="meta-card"><div class="label">Total Rows</div><div class="value">${allRows.length.toLocaleString()}</div></div>
+    <div class="meta-card"><div class="label">Entities</div><div class="value">${entities.length}</div></div>
+    <div class="meta-card"><div class="label">Unique Accounts</div><div class="value">${accounts.length}</div></div>
+  `;
+
+  // Populate account dropdowns
+  const opt = accounts.map(a => `<option value="${a}">${a}</option>`).join('');
+  document.getElementById('account1-select').innerHTML = opt;
+  document.getElementById('account2-select').innerHTML = opt;
+
+  // Try to pre-select sensible defaults
+  const dueTo   = accounts.find(a => /due.?to/i.test(a))   || accounts.find(a => /^2/i.test(a.trim())) || accounts[0];
+  const dueFrom = accounts.find(a => /due.?from/i.test(a)) || accounts.find(a => /^1/i.test(a.trim())) || accounts[1];
+  if (dueTo)   document.getElementById('account1-select').value = dueTo;
+  if (dueFrom) document.getElementById('account2-select').value = dueFrom;
+
+  document.getElementById('step2').classList.remove('hidden');
+  document.getElementById('step3').classList.add('hidden');
+}
+
+// ─────────────────────────────────────────
+// Reconciliation
+// ─────────────────────────────────────────
+document.getElementById('btn-reconcile').addEventListener('click', () => {
+  const acct1 = document.getElementById('account1-select').value;
+  const acct2 = document.getElementById('account2-select').value;
+  if (acct1 === acct2) { alert('Please select two different accounts.'); return; }
+
+  const result = reconcile(allRows, acct1, acct2);
+  summaryData   = result.summary;
+  drilldownData = result.drilldown;
+  excludedData  = result.excluded;
+
+  document.getElementById('col-a1-header').textContent = shortName(acct1) + ' Balance';
+  document.getElementById('col-a2-header').textContent = shortName(acct2) + ' Balance';
+
+  showSummaryTab();
+  showDrilldownTab();
+  showExcludedTab();
+
+  document.getElementById('step3').classList.remove('hidden');
+  document.getElementById('step3').scrollIntoView({ behavior: 'smooth' });
+});
+
+function shortName(s) { return s.length > 30 ? s.slice(0,28)+'…' : s; }
+
+function parseAmt(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  const n = parseFloat(String(v).replace(/,/g,'').trim());
+  return isNaN(n) ? 0 : n;
+}
+
+function fmt(n, signed) {
+  const abs = Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (!signed) return (n < 0 ? '(' + abs + ')' : abs);
+  return (n < 0 ? '-' : '') + abs;
+}
+
+function reconcile(rows, acct1, acct2) {
+  const excluded = [];
+  const matched  = [];
+
+  for (const r of rows) {
+    const acct = (r['Account'] || '').trim();
+    const acg  = (r['Account Code Group'] || '').trim();
+    if (acct !== acct1 && acct !== acct2) {
+      excluded.push({...r, _reason: 'Account not selected'});
+      continue;
+    }
+    if (acg !== 'Entities') {
+      excluded.push({...r, _reason: 'Account Code Group ≠ Entities'});
+      continue;
+    }
+    matched.push(r);
+  }
+
+  // Build entity pairs
+  const pairSet = new Set();
+  for (const r of matched) {
+    const entity = (r['Entity'] || '').trim();
+    const code   = (r['Account Code'] || '').trim();
+    if (!entity || !code) continue;
+    const pair = [entity, code].sort().join('||');
+    pairSet.add(pair);
+  }
+
+  const summary   = [];
+  const drilldown = [];
+
+  for (const pairKey of pairSet) {
+    const [e1, e2] = pairKey.split('||');
+
+    // Find actual roles: who has acct1, who has acct2
+    const a1rows = matched.filter(r => r['Entity']===e1 && r['Account']===acct1 && (r['Account Code']||'').trim()===e2);
+    const a2rows = matched.filter(r => r['Entity']===e2 && r['Account']===acct2 && (r['Account Code']||'').trim()===e1);
+
+    // Flip if nothing found in that direction
+    const a1rowsAlt = matched.filter(r => r['Entity']===e2 && r['Account']===acct1 && (r['Account Code']||'').trim()===e1);
+    const a2rowsAlt = matched.filter(r => r['Entity']===e1 && r['Account']===acct2 && (r['Account Code']||'').trim()===e2);
+
+    const useA1 = a1rows.length >= a1rowsAlt.length ? a1rows : a1rowsAlt;
+    const useA2 = a2rows.length >= a2rowsAlt.length ? a2rows : a2rowsAlt;
+    const mainEnt  = useA1.length ? (useA1[0]['Entity']||'').trim() : e1;
+    const otherEnt = useA2.length ? (useA2[0]['Entity']||'').trim() : e2;
+
+    const bal1 = useA1.reduce((s,r) => s + parseAmt(r['Accounting Amount']), 0);
+    const bal2 = useA2.reduce((s,r) => s + parseAmt(r['Accounting Amount']), 0);
+    const diff = Math.abs(bal1) - Math.abs(bal2);
+
+    summary.push({ mainEnt, otherEnt, bal1, bal2, diff,
+                   status: Math.abs(diff) < 0.01 ? 'match' : Math.abs(diff) < 1 ? 'rounding' : 'mismatch' });
+
+    // Drilldown: per date
+    const allPairRows = [...useA1, ...useA2];
+    for (const r of allPairRows) {
+      drilldown.push({
+        mainEnt, otherEnt,
+        date:    r['Effective At'] || '',
+        account: r['Account'] || '',
+        desc:    r['Description'] || r['Memo'] || '',
+        debits:  parseAmt(r['Debits']),
+        credits: parseAmt(r['Credits']),
+        acctAmt: parseAmt(r['Accounting Amount'])
+      });
+    }
+  }
+
+  summary.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
+  drilldown.sort((a,b) => (a.mainEnt+a.otherEnt+a.date).localeCompare(b.mainEnt+b.otherEnt+b.date));
+
+  return { summary, drilldown, excluded };
+}
+
+// ─────────────────────────────────────────
+// Render tabs
+// ─────────────────────────────────────────
+function showSummaryTab() {
+  const mismatches = summaryData.filter(r => r.status === 'mismatch').length;
+  const matches    = summaryData.filter(r => r.status === 'match').length;
+  const grid = document.getElementById('result-summary-grid');
+  grid.innerHTML = `
+    <div class="meta-card"><div class="label">Entity Pairs</div><div class="value">${summaryData.length}</div></div>
+    <div class="meta-card"><div class="label">✓ Matched</div><div class="value" style="color:var(--pass)">${matches}</div></div>
+    <div class="meta-card"><div class="label">✗ Mismatches</div><div class="value" style="color:var(--fail)">${mismatches}</div></div>
+  `;
+
+  const tbody = document.getElementById('summary-body');
+  tbody.innerHTML = summaryData.map(r => {
+    const diffClass = r.status === 'match' ? 'diff-zero' :
+                      r.status === 'rounding' ? 'diff-small' : 'diff-nonzero';
+    const badge = r.status === 'match'    ? '<span class="badge badge-pass">Match</span>' :
+                  r.status === 'rounding' ? '<span class="badge badge-warn">Rounding</span>' :
+                                            '<span class="badge badge-fail">Mismatch</span>';
+    return `<tr>
+      <td>${r.mainEnt}</td><td>${r.otherEnt}</td>
+      <td class="num">${fmt(r.bal1)}</td>
+      <td class="num">${fmt(r.bal2)}</td>
+      <td class="num ${diffClass}">${fmt(r.diff, true)}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('summary-count').textContent = `${summaryData.length} entity pairs`;
+}
+
+function showDrilldownTab() {
+  const pairs = [...new Set(drilldownData.map(r => r.mainEnt + ' ↔ ' + r.otherEnt))].sort();
+  const sel = document.getElementById('filter-pair');
+  sel.innerHTML = '<option value="">All pairs</option>' +
+    pairs.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  renderDrilldown();
+}
+
+sel_filter_pair_handler_set: {
+  document.getElementById('filter-pair').addEventListener('change', renderDrilldown);
+}
+
+function renderDrilldown() {
+  const filter = document.getElementById('filter-pair').value;
+  const rows = filter
+    ? drilldownData.filter(r => (r.mainEnt + ' ↔ ' + r.otherEnt) === filter)
+    : drilldownData;
+
+  const tbody = document.getElementById('drilldown-body');
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td>${r.mainEnt}</td><td>${r.otherEnt}</td><td>${r.date}</td>
+    <td>${r.account}</td><td>${r.desc}</td>
+    <td class="num">${r.debits  ? fmt(r.debits)  : ''}</td>
+    <td class="num">${r.credits ? fmt(r.credits) : ''}</td>
+    <td class="num">${fmt(r.acctAmt, true)}</td>
+  </tr>`).join('');
+  document.getElementById('drilldown-count').textContent = `${rows.length} rows`;
+}
+
+function showExcludedTab() {
+  const tbody = document.getElementById('excluded-body');
+  tbody.innerHTML = excludedData.map(r => `<tr>
+    <td>${r['Entity']||''}</td>
+    <td>${r['Account']||''}</td>
+    <td>${r['Effective At']||''}</td>
+    <td>${r['Account Code Group']||''}</td>
+    <td>${r['Account Code']||''}</td>
+    <td class="num">${r['Accounting Amount']||''}</td>
+    <td>${r._reason}</td>
+  </tr>`).join('');
+  document.getElementById('excluded-count').textContent = `${excludedData.length} excluded rows`;
+}
+
+// ─────────────────────────────────────────
+// Tab switching
+// ─────────────────────────────────────────
+function setActiveTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+}
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => setActiveTab(b.dataset.tab)));
+
+// ─────────────────────────────────────────
+// CSV Exports
+// ─────────────────────────────────────────
+document.getElementById('btn-export-summary').addEventListener('click', () => {
+  const acct1 = document.getElementById('account1-select').value;
+  const acct2 = document.getElementById('account2-select').value;
+  const rows = summaryData.map(r => ({
+    'Main Entity': r.mainEnt,
+    'Other Entity': r.otherEnt,
+    [`Balance: ${acct1}`]: r.bal1.toFixed(2),
+    [`Balance: ${acct2}`]: r.bal2.toFixed(2),
+    'Difference': r.diff.toFixed(2),
+    'Status': r.status
+  }));
+  downloadCSV(rows, 'inter_entity_summary.csv');
+});
+
+document.getElementById('btn-export-drilldown').addEventListener('click', () => {
+  const rows = drilldownData.map(r => ({
+    'Main Entity': r.mainEnt, 'Other Entity': r.otherEnt,
+    'Date': r.date, 'Account': r.account, 'Description': r.desc,
+    'Debits': r.debits.toFixed(2), 'Credits': r.credits.toFixed(2),
+    'Accounting Amount': r.acctAmt.toFixed(2)
+  }));
+  downloadCSV(rows, 'inter_entity_drilldown.csv');
+});
+
+function downloadCSV(rows, filename) {
+  if (!rows.length) { alert('No data to export.'); return; }
+  const csv  = Papa.unparse(rows);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>

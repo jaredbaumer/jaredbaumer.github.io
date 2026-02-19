@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QBO Journal Converter — SumIt</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary:  #0F4C81;
+      --accent:   #00A878;
+      --light-bg: #EEF7F3;
+      --dark:     #1A202C;
+      --pass:     #16A34A;
+      --fail:     #DC2626;
+      --warn:     #D97706;
+      --border:   #CBD5E0;
+      --muted:    #718096;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:#F7FAFC;color:var(--dark);font-size:14px}
+    .topbar{background:var(--primary);color:white;display:flex;align-items:center;gap:12px;
+      padding:0 24px;height:52px;position:sticky;top:0;z-index:100;
+      box-shadow:0 2px 8px rgba(0,0,0,.25)}
+    .topbar a.back{color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;
+      display:flex;align-items:center;gap:4px}
+    .topbar a.back:hover{color:white}
+    .topbar .divider{color:rgba(255,255,255,.35);font-size:16px}
+    .topbar h1{font-size:15px;font-weight:600}
+
+    main{max-width:1000px;margin:0 auto;padding:28px 24px 80px}
+
+    /* Tabs */
+    .main-tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:24px}
+    .main-tab-btn{padding:10px 20px;border:none;background:none;cursor:pointer;
+      font-size:14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;
+      margin-bottom:-2px;transition:color .15s,border-color .15s}
+    .main-tab-btn.active{color:var(--primary);border-bottom-color:var(--accent)}
+    .main-tab-pane{display:none}
+    .main-tab-pane.active{display:block}
+
+    /* Cards */
+    .card{background:white;border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden}
+    .card-header{background:var(--light-bg);padding:12px 18px;display:flex;align-items:center;gap:10px;
+      border-bottom:1px solid var(--border)}
+    .card-header h3{font-size:13px;font-weight:700;color:var(--primary)}
+    .card-body{padding:18px}
+
+    /* Upload zones */
+    .drop-zone{border:2px dashed var(--border);border-radius:8px;padding:28px 20px;
+      text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+    .drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:var(--light-bg)}
+    .drop-zone p{color:var(--muted);font-size:13px}
+    .drop-zone p strong{color:var(--primary)}
+    .file-input{display:none}
+
+    /* Buttons */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;
+      border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.15s}
+    .btn:disabled{opacity:.4;cursor:not-allowed}
+    .btn-primary{background:var(--accent);color:white}
+    .btn-primary:not(:disabled):hover{background:#009b6d}
+    .btn-outline{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
+    .btn-outline:not(:disabled):hover{background:var(--light-bg)}
+    .btn-sm{padding:5px 12px;font-size:12px}
+    .btn-danger{background:#DC2626;color:white}
+    .btn-danger:not(:disabled):hover{background:#b91c1c}
+
+    /* Form */
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px}
+    .form-row.single{grid-template-columns:1fr}
+    .form-group{display:flex;flex-direction:column;gap:5px}
+    .form-group label{font-size:11px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.05em;color:var(--muted)}
+    .form-group select,.form-group input{padding:7px 10px;border:1px solid var(--border);
+      border-radius:6px;font-size:13px;color:var(--dark);background:white;width:100%}
+    .hint{font-size:11px;color:var(--muted)}
+
+    /* Preview table */
+    .tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border);max-height:320px;overflow-y:auto}
+    table{border-collapse:collapse;width:100%;font-size:11px}
+    thead tr{background:var(--primary);color:white;position:sticky;top:0}
+    thead th{padding:7px 9px;text-align:left;font-weight:600;white-space:nowrap;cursor:pointer}
+    tbody tr:nth-child(even){background:#F7FAFC}
+    tbody tr:hover{background:var(--light-bg)}
+    tbody td{padding:6px 9px;border-top:1px solid var(--border);white-space:nowrap}
+    tbody tr.header-selected{background:#DBEAFE!important}
+    .num{text-align:right;font-variant-numeric:tabular-nums}
+    .row-count{font-size:12px;color:var(--muted);margin-top:6px}
+
+    /* Status */
+    .status-bar{padding:10px 14px;border-radius:6px;font-size:12px;margin-bottom:12px;font-weight:600}
+    .status-ok{background:#DCFCE7;color:var(--pass);border:1px solid #86EFAC}
+    .status-err{background:#FEE2E2;color:var(--fail);border:1px solid #FCA5A5}
+    .status-info{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE}
+    .status-warn{background:#FEF9C3;color:var(--warn);border:1px solid #FDE047}
+
+    /* Mapping chip */
+    .chip{display:inline-flex;align-items:center;gap:6px;background:var(--light-bg);
+      border:1px solid var(--accent);color:var(--primary);padding:4px 10px;border-radius:20px;
+      font-size:12px;font-weight:600}
+    .chip button{background:none;border:none;color:var(--fail);cursor:pointer;font-size:14px;line-height:1}
+
+    .sheet-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .sheet-btn{padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:white;
+      cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);transition:.15s}
+    .sheet-btn:hover{border-color:var(--accent);color:var(--primary)}
+    .sheet-btn.active{background:var(--primary);color:white;border-color:var(--primary)}
+
+    .hidden{display:none!important}
+    .flex-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+    .separator{border:none;border-top:1px solid var(--border);margin:16px 0}
+  </style>
+</head>
+<body>
+<nav class="topbar">
+  <a class="back" href="../../index.html">← Hub</a>
+  <span class="divider">|</span>
+  <h1>QBO Journal Entry Converter</h1>
+</nav>
+
+<main>
+  <div class="main-tabs">
+    <button class="main-tab-btn active" data-tab="ucoa">📋 UCOA Mapping</button>
+    <button class="main-tab-btn" data-tab="qbo">⬛ QBO Conversion</button>
+    <button class="main-tab-btn" data-tab="agillink">🔗 AgilLink Conversion</button>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       TAB: UCOA Mapping
+  ══════════════════════════════════════ -->
+  <div class="main-tab-pane active" id="tab-ucoa">
+    <div class="card">
+      <div class="card-header"><h3>Upload UCOA Mapping File</h3></div>
+      <div class="card-body">
+        <div id="ucoa-loaded-bar" class="hidden">
+          <div class="status-ok" id="ucoa-status-ok"></div>
+          <div class="flex-row" style="margin-top:10px">
+            <div class="chip" id="ucoa-chip">
+              <span id="ucoa-chip-name"></span>
+              <button onclick="clearMapping()" title="Remove mapping">✕</button>
+            </div>
+          </div>
+        </div>
+        <div id="ucoa-upload-area">
+          <div class="drop-zone" id="ucoa-drop" onclick="document.getElementById('ucoa-input').click()">
+            <p><strong>Click to browse</strong> or drag &amp; drop the UCOA Excel file (.xlsx)</p>
+            <p id="ucoa-file-name" style="margin-top:6px;font-weight:600;color:var(--primary)"></p>
+          </div>
+          <input type="file" class="file-input" id="ucoa-input" accept=".xlsx,.xls"/>
+          <p class="hint" style="margin-top:8px">
+            Required: sheet named <code>Combined Chart of Accounts</code> with columns:
+            Chart of Accounts Name · Original Account Name · Original Account Number ·
+            Mapped Account Number · Mapped Account Name · Mapped Account Code
+          </p>
+        </div>
+        <div id="ucoa-preview" class="hidden" style="margin-top:16px">
+          <div class="tbl-wrap" id="ucoa-tbl-wrap"></div>
+          <p class="row-count" id="ucoa-row-count"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       TAB: QBO Conversion
+  ══════════════════════════════════════ -->
+  <div class="main-tab-pane" id="tab-qbo">
+
+    <div class="card">
+      <div class="card-header"><h3>Step 1 — Upload QBO Journal Report</h3></div>
+      <div class="card-body">
+        <div class="drop-zone" id="qbo-drop" onclick="document.getElementById('qbo-input').click()">
+          <p><strong>Click to browse</strong> or drag &amp; drop a QBO Journal report (.xlsx)</p>
+          <p id="qbo-file-name" style="margin-top:6px;font-weight:600;color:var(--primary)"></p>
+        </div>
+        <input type="file" class="file-input" id="qbo-input" accept=".xlsx,.xls"/>
+      </div>
+    </div>
+
+    <div class="card hidden" id="qbo-config-card">
+      <div class="card-header"><h3>Step 2 — Configure &amp; Process</h3></div>
+      <div class="card-body">
+        <p class="hint" style="margin-bottom:12px">
+          Click a row in the preview to mark it as the <strong>header row</strong>. Then select the JE column and entity.
+        </p>
+        <div class="tbl-wrap" id="qbo-preview-wrap"></div>
+        <p class="row-count" id="qbo-preview-count"></p>
+        <hr class="separator"/>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Journal Entry (JE) Column</label>
+            <select id="qbo-je-col">
+              <option value="">— select header row first —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Entity Name</label>
+            <input type="text" id="qbo-entity" placeholder="e.g. Carter M Reum"/>
+          </div>
+        </div>
+        <div id="qbo-detect-status"></div>
+        <div class="flex-row" style="margin-top:8px">
+          <button class="btn btn-primary" id="qbo-process-btn" disabled>Process &amp; Map File</button>
+        </div>
+        <div id="qbo-result" class="hidden" style="margin-top:14px">
+          <div class="status-ok" id="qbo-result-status"></div>
+          <div class="flex-row" style="margin-top:10px">
+            <button class="btn btn-outline btn-sm" id="qbo-dl-xlsx">↓ Download Converted Excel</button>
+            <button class="btn btn-outline btn-sm" id="qbo-dl-tags">↓ Download Tags CSV</button>
+            <button class="btn btn-outline btn-sm" id="qbo-dl-codes">↓ Download Account Codes CSV</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       TAB: AgilLink Conversion
+  ══════════════════════════════════════ -->
+  <div class="main-tab-pane" id="tab-agillink">
+
+    <div class="card">
+      <div class="card-header"><h3>Step 1 — Upload AgilLink Journal File</h3></div>
+      <div class="card-body">
+        <div class="drop-zone" id="ag-drop" onclick="document.getElementById('ag-input').click()">
+          <p><strong>Click to browse</strong> or drag &amp; drop an AgilLink Excel file (.xlsx)</p>
+          <p id="ag-file-name" style="margin-top:6px;font-weight:600;color:var(--primary)"></p>
+        </div>
+        <input type="file" class="file-input" id="ag-input" accept=".xlsx,.xls"/>
+      </div>
+    </div>
+
+    <div class="card hidden" id="ag-config-card">
+      <div class="card-header"><h3>Step 2 — Select Sheet &amp; Configure</h3></div>
+      <div class="card-body">
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Workbook Sheets</label>
+          <div class="sheet-list" id="ag-sheet-list"></div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Entity Name</label>
+          <input type="text" id="ag-entity" placeholder="e.g. HCC Management LLC"/>
+        </div>
+        <div id="ag-preview-area" class="hidden">
+          <p class="hint" style="margin-bottom:8px">Preview (first 20 rows of selected sheet):</p>
+          <div class="tbl-wrap" id="ag-preview-wrap"></div>
+        </div>
+        <div class="flex-row" style="margin-top:14px">
+          <button class="btn btn-primary" id="ag-process-btn">Process &amp; Map File</button>
+        </div>
+        <div id="ag-result" class="hidden" style="margin-top:14px">
+          <div class="status-ok" id="ag-result-status"></div>
+          <div class="flex-row" style="margin-top:10px">
+            <button class="btn btn-outline btn-sm" id="ag-dl-xlsx">↓ Download Converted Excel</button>
+            <button class="btn btn-outline btn-sm" id="ag-dl-tags">↓ Download Tags CSV</button>
+            <button class="btn btn-outline btn-sm" id="ag-dl-codes">↓ Download Account Codes CSV</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════
+let mappingRows   = [];   // UCOA mapping rows
+let qboWorkbook   = null;
+let agWorkbook    = null;
+let qboRawRows    = [];   // array of arrays (all rows from first sheet)
+let qboHeaderIdx  = -1;
+let qboOutputRows = [];
+let agOutputRows  = [];
+
+const OUT_COLS = ['JE Number','Transaction Date','Description','Account Full Name',
+                  'Debit','Credit','Vendor','Account','Account Codes','Tags','Entity'];
+
+// ═══════════════════════════════════════════════════════
+// Page reset on browser back
+// ═══════════════════════════════════════════════════════
+window.addEventListener('pageshow', fullReset);
+function fullReset() {
+  mappingRows=[]; qboWorkbook=null; agWorkbook=null; qboRawRows=[];
+  qboHeaderIdx=-1; qboOutputRows=[]; agOutputRows=[];
+  ['ucoa-input','qbo-input','ag-input'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('ucoa-preview').classList.add('hidden');
+  document.getElementById('ucoa-loaded-bar').classList.add('hidden');
+  document.getElementById('ucoa-upload-area').classList.remove('hidden');
+  document.getElementById('qbo-config-card').classList.add('hidden');
+  document.getElementById('qbo-result').classList.add('hidden');
+  document.getElementById('ag-config-card').classList.add('hidden');
+  document.getElementById('ag-result').classList.add('hidden');
+  ['qbo-file-name','ag-file-name','ucoa-file-name'].forEach(id=>{
+    document.getElementById(id).textContent='';
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// Main tabs
+// ═══════════════════════════════════════════════════════
+document.querySelectorAll('.main-tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.main-tab-btn').forEach(b=>b.classList.toggle('active',b===btn));
+    document.querySelectorAll('.main-tab-pane').forEach(p=>p.classList.toggle('active',p.id==='tab-'+btn.dataset.tab));
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════
+function readXLSX(file, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary', cellText: false, cellDates: true });
+      cb(null, wb);
+    } catch(err) { cb(err); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function sheetToAoA(ws) {
+  return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true });
+}
+
+function sheetToAoO(ws) {
+  return XLSX.utils.sheet_to_json(ws, { defval: '' });
+}
+
+function buildTable(rows, {highlightRow=-1, clickable=false, maxRows=200}={}) {
+  if (!rows.length) return '<p style="color:var(--muted);font-size:12px">No data</p>';
+  const head = rows[0];
+  const data = rows.slice(1, maxRows+1);
+  const ths  = head.map((h,i)=>`<th data-col="${i}">${h}</th>`).join('');
+  const trs  = data.map((row, ri) => {
+    const tds = row.map(c=>`<td>${c===null||c===undefined?'':c}</td>`).join('');
+    const sel = (ri+1)===highlightRow ? ' class="header-selected"' : '';
+    const click = clickable ? ` onclick="selectQboHeader(${ri+1})"` : '';
+    return `<tr${sel}${click}>${tds}</tr>`;
+  }).join('');
+  return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
+function fmtDate(v) {
+  if (!v) return '';
+  if (v instanceof Date) return v.toLocaleDateString('en-US',{year:'numeric',month:'2-digit',day:'2-digit'});
+  return String(v);
+}
+
+function norm(s) { return String(s||'').toLowerCase().replace(/[\s\/\-_]+/g,''); }
+
+function findCol(headers, ...patterns) {
+  for (const p of patterns) {
+    const idx = headers.findIndex(h => norm(h).includes(norm(p)));
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
+function parseNum(v) {
+  if (v===null||v===undefined||v==='') return 0;
+  const n = parseFloat(String(v).replace(/,/g,'').trim());
+  return isNaN(n) ? 0 : n;
+}
+
+function isTotalRow(row, nameIdx, amtIdx) {
+  const name = String(row[nameIdx]||'').toLowerCase();
+  if (/^total|^subtotal|^grand total/.test(name)) return true;
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════
+// UCOA Mapping
+// ═══════════════════════════════════════════════════════
+setupDrop('ucoa-drop','ucoa-input', handleUcoaFile);
+document.getElementById('ucoa-input').addEventListener('change',e=>{
+  if(e.target.files[0]) handleUcoaFile(e.target.files[0]);
+});
+
+function handleUcoaFile(file) {
+  document.getElementById('ucoa-file-name').textContent = '📄 '+file.name;
+  readXLSX(file,(err,wb)=>{
+    if(err){ alert('Error reading file: '+err.message); return; }
+    const sheetName = wb.SheetNames.find(s=>s.trim()==='Combined Chart of Accounts');
+    if(!sheetName){ alert('Sheet "Combined Chart of Accounts" not found.\nSheets found: '+wb.SheetNames.join(', ')); return; }
+    mappingRows = sheetToAoO(wb.Sheets[sheetName]);
+    showMappingPreview(file.name, mappingRows);
+  });
+}
+
+function showMappingPreview(fname, rows) {
+  const n = rows.length;
+  document.getElementById('ucoa-status-ok').textContent = `✅ UCOA mapping loaded: ${n.toLocaleString()} rows from "${fname}"`;
+  document.getElementById('ucoa-chip-name').textContent = fname;
+  document.getElementById('ucoa-loaded-bar').classList.remove('hidden');
+  document.getElementById('ucoa-upload-area').classList.add('hidden');
+
+  // Build mini preview
+  const cols = Object.keys(rows[0]||{});
+  const tableRows = [cols, ...rows.slice(0,8).map(r=>cols.map(c=>r[c]))];
+  document.getElementById('ucoa-tbl-wrap').innerHTML = buildTable(tableRows);
+  document.getElementById('ucoa-row-count').textContent = `${n.toLocaleString()} mapping rows`;
+  document.getElementById('ucoa-preview').classList.remove('hidden');
+}
+
+function clearMapping() {
+  mappingRows = [];
+  document.getElementById('ucoa-loaded-bar').classList.add('hidden');
+  document.getElementById('ucoa-upload-area').classList.remove('hidden');
+  document.getElementById('ucoa-preview').classList.add('hidden');
+  document.getElementById('ucoa-input').value = '';
+}
+
+function lookupMapping(entity, accountName, accountNum) {
+  if (!mappingRows.length) return null;
+  const ent = norm(entity);
+  const an  = norm(accountName);
+  const num = norm(accountNum||'');
+  for (const row of mappingRows) {
+    if (norm(row['Chart of Accounts Name']||'')=== ent) {
+      if (norm(row['Original Account Name']||'')=== an) return row;
+      if (num && norm(row['Original Account Number']||'')=== num) return row;
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════
+// QBO Conversion
+// ═══════════════════════════════════════════════════════
+setupDrop('qbo-drop','qbo-input', handleQboFile);
+document.getElementById('qbo-input').addEventListener('change',e=>{
+  if(e.target.files[0]) handleQboFile(e.target.files[0]);
+});
+
+function handleQboFile(file) {
+  document.getElementById('qbo-file-name').textContent = '📄 '+file.name;
+  document.getElementById('qbo-result').classList.add('hidden');
+  readXLSX(file,(err,wb)=>{
+    if(err){ alert('Error: '+err.message); return; }
+    qboWorkbook = wb;
+    qboRawRows  = sheetToAoA(wb.Sheets[wb.SheetNames[0]]);
+    qboHeaderIdx = -1;
+    renderQboPreview();
+    document.getElementById('qbo-config-card').classList.remove('hidden');
+  });
+}
+
+function renderQboPreview() {
+  const preview = qboRawRows.slice(0,30);
+  document.getElementById('qbo-preview-wrap').innerHTML =
+    buildTable([...preview].map((r,i)=> [String(i)+' →', ...r]),
+               { clickable: true, highlightRow: qboHeaderIdx+1 });
+  document.getElementById('qbo-preview-count').textContent =
+    `${qboRawRows.length} total rows. Click a row to mark it as the header row.`;
+}
+
+window.selectQboHeader = function(rowIdx) {
+  // rowIdx is index in preview (1 = first data row, accounting for header col we prepended)
+  // Actually we prepended a row index column, so rowIdx maps to qboRawRows[rowIdx-1]
+  qboHeaderIdx = rowIdx - 1; // offset by the index column row
+  // Re-highlight
+  document.querySelectorAll('#qbo-preview-wrap tbody tr').forEach((tr,i)=>{
+    tr.classList.toggle('header-selected', i+1 === rowIdx);
+  });
+  populateQboJEcol();
+};
+
+function populateQboJEcol() {
+  if (qboHeaderIdx < 0) return;
+  const headers = qboRawRows[qboHeaderIdx] || [];
+  const sel = document.getElementById('qbo-je-col');
+  sel.innerHTML = headers.map((h,i)=>
+    `<option value="${i}">${h||'(col '+i+')'}</option>`
+  ).join('');
+
+  // Try to preselect common JE column names
+  const jeIdx = findCol(headers, 'num', 'number', 'je', 'journal entry', 'transaction');
+  if (jeIdx >= 0) sel.value = String(jeIdx);
+
+  // Check required cols
+  const reqCols = ['Transaction Date','Full Name','Debit','Credit'];
+  const missing = reqCols.filter(c => findCol(headers, c) < 0);
+  const statusEl = document.getElementById('qbo-detect-status');
+  if (missing.length) {
+    statusEl.innerHTML = `<div class="status-warn" style="margin-top:10px">
+      ⚠️ Could not auto-detect: ${missing.join(', ')}.
+      Ensure these column names exist in the selected header row.
+    </div>`;
+  } else {
+    statusEl.innerHTML = `<div class="status-ok" style="margin-top:10px">
+      ✅ Required columns detected. Ready to process.
+    </div>`;
+  }
+  document.getElementById('qbo-process-btn').disabled = false;
+}
+
+document.getElementById('qbo-process-btn').addEventListener('click', processQbo);
+
+function processQbo() {
+  if (qboHeaderIdx < 0) { alert('Please click a row to select the header first.'); return; }
+  const headers  = qboRawRows[qboHeaderIdx] || [];
+  const entity   = document.getElementById('qbo-entity').value.trim();
+  const jeColIdx = parseInt(document.getElementById('qbo-je-col').value);
+
+  const dateIdx  = findCol(headers,'Transaction Date','Date','TxnDate');
+  const nameIdx  = findCol(headers,'Full Name','Account','Name');
+  const debIdx   = findCol(headers,'Debit','Debits');
+  const crdIdx   = findCol(headers,'Credit','Credits');
+  const memoIdx  = findCol(headers,'Memo','Memo/Description','Description','Narration');
+  const vendIdx  = findCol(headers,'Name','Vendor','Payee');
+
+  if (dateIdx<0||nameIdx<0||debIdx<0||crdIdx<0) {
+    alert('Could not find required columns (Transaction Date, Full Name, Debit, Credit). Check header row selection.');
+    return;
+  }
+
+  const dataRows = qboRawRows.slice(qboHeaderIdx+1);
+  const jeMap    = {};   // jeNum -> [rows]
+  const output   = [];
+
+  for (const row of dataRows) {
+    if (!row || row.every(c=>c===''||c===null||c===undefined)) continue;
+    const jeNum = String(row[jeColIdx]||'').trim();
+    const acct  = String(row[nameIdx]||'').trim();
+    if (!jeNum || !acct) continue;
+    if (isTotalRow(row, nameIdx, debIdx)) continue;
+
+    const deb = parseNum(row[debIdx]);
+    const crd = parseNum(row[crdIdx]);
+    if (deb===0 && crd===0) continue;
+
+    const outRow = {
+      'JE Number':        jeNum,
+      'Transaction Date': fmtDate(row[dateIdx]),
+      'Description':      memoIdx>=0 ? String(row[memoIdx]||'') : '',
+      'Account Full Name':acct,
+      'Debit':            deb||'',
+      'Credit':           crd||'',
+      'Vendor':           vendIdx>=0 ? String(row[vendIdx]||'') : '',
+      'Account':          '',
+      'Account Codes':    '',
+      'Tags':             '',
+      'Entity':           entity
+    };
+
+    // Apply UCOA mapping
+    const mapped = lookupMapping(entity, acct, '');
+    if (mapped) {
+      outRow['Account']       = mapped['Mapped Account Number']||'';
+      outRow['Account Codes'] = mapped['Mapped Account Code']||'';
+    }
+
+    if (!jeMap[jeNum]) jeMap[jeNum]={deb:0,crd:0};
+    jeMap[jeNum].deb += deb;
+    jeMap[jeNum].crd += crd;
+    output.push(outRow);
+  }
+
+  // Populate Tags from unique vendors
+  const vendors = [...new Set(output.map(r=>r['Vendor']).filter(Boolean))];
+  for (const r of output) {
+    if (r['Vendor']) r['Tags'] = r['Vendor'];
+  }
+
+  // Validate balances
+  const errors = Object.entries(jeMap).filter(([,v])=>Math.abs(v.deb-v.crd)>0.01);
+  let msg = `✅ Processed ${output.length} rows across ${Object.keys(jeMap).length} JEs.`;
+  if (errors.length) msg += ` ⚠️ ${errors.length} JE(s) out of balance: ${errors.map(([k])=>k).slice(0,5).join(', ')}`;
+
+  qboOutputRows = output;
+  document.getElementById('qbo-result-status').textContent = msg;
+  document.getElementById('qbo-result').classList.remove('hidden');
+  document.getElementById('qbo-result').scrollIntoView({behavior:'smooth'});
+}
+
+document.getElementById('qbo-dl-xlsx').addEventListener('click',()=> downloadOutputXlsx(qboOutputRows,'QBO_Converted.xlsx'));
+document.getElementById('qbo-dl-tags').addEventListener('click',()=> downloadTags(qboOutputRows,'QBO_Tags.csv'));
+document.getElementById('qbo-dl-codes').addEventListener('click',()=> downloadCodes(qboOutputRows,'QBO_AccountCodes.csv'));
+
+// ═══════════════════════════════════════════════════════
+// AgilLink Conversion
+// ═══════════════════════════════════════════════════════
+setupDrop('ag-drop','ag-input', handleAgFile);
+document.getElementById('ag-input').addEventListener('change',e=>{
+  if(e.target.files[0]) handleAgFile(e.target.files[0]);
+});
+
+function handleAgFile(file) {
+  document.getElementById('ag-file-name').textContent = '📄 '+file.name;
+  document.getElementById('ag-result').classList.add('hidden');
+  readXLSX(file,(err,wb)=>{
+    if(err){ alert('Error: '+err.message); return; }
+    agWorkbook = wb;
+    const sheetList = document.getElementById('ag-sheet-list');
+    sheetList.innerHTML = wb.SheetNames.map((s,i)=>
+      `<button class="sheet-btn${i===1?' active':''}" data-sheet="${s}" onclick="selectAgSheet('${s}',this)">${s}</button>`
+    ).join('');
+    const defaultSheet = wb.SheetNames[1] || wb.SheetNames[0];
+    loadAgSheet(defaultSheet);
+    document.getElementById('ag-config-card').classList.remove('hidden');
+  });
+}
+
+window.selectAgSheet = function(name, btn) {
+  document.querySelectorAll('.sheet-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadAgSheet(name);
+};
+
+function loadAgSheet(name) {
+  const ws   = agWorkbook.Sheets[name];
+  const rows = sheetToAoA(ws).slice(0,20);
+  if (rows.length) {
+    document.getElementById('ag-preview-wrap').innerHTML = buildTable(rows);
+    document.getElementById('ag-preview-area').classList.remove('hidden');
+  }
+}
+
+document.getElementById('ag-process-btn').addEventListener('click', processAgilLink);
+
+function processAgilLink() {
+  const activeBtn = document.querySelector('.sheet-btn.active');
+  if (!activeBtn) { alert('Please select a sheet.'); return; }
+  const sheetName = activeBtn.dataset.sheet;
+  const entity    = document.getElementById('ag-entity').value.trim();
+  const ws        = agWorkbook.Sheets[sheetName];
+  const allRows   = sheetToAoA(ws);
+
+  // Auto-detect header row: find row where we see "Journal" or "Date" or "Account"
+  let hdrIdx = -1;
+  for (let i=0; i<Math.min(15,allRows.length); i++) {
+    const r = allRows[i];
+    const joined = r.join(' ').toLowerCase();
+    if (/journal|account|debit|credit/.test(joined)) { hdrIdx = i; break; }
+  }
+  if (hdrIdx < 0) hdrIdx = 0;
+
+  const headers  = allRows[hdrIdx];
+  const dataRows = allRows.slice(hdrIdx+1);
+
+  // Map columns (AgilLink: A=JE#, B=Ref, C/D=Date, E=Desc, F=Acct#, G=Acct Desc, H=Detail)
+  const jeIdx   = findCol(headers,'Journal','JE','Journal #','Journal Number');
+  const dateIdx = findCol(headers,'Date','Effective','Transaction Date');
+  const descIdx = findCol(headers,'Description','Desc','Detail');
+  const acctNumIdx = findCol(headers,'Account Number','Acct No','Account No');
+  const acctDescIdx= findCol(headers,'Account Description','Account Desc','Account Name');
+  const debIdx  = findCol(headers,'Debit','Debit Amount');
+  const crdIdx  = findCol(headers,'Credit','Credit Amount');
+
+  // Fallback to positional (A=0,B=1,C=2,E=4,F=5,G=6)
+  const jI   = jeIdx   >= 0 ? jeIdx   : 0;
+  const dtI  = dateIdx >= 0 ? dateIdx : 2;
+  const dsI  = descIdx >= 0 ? descIdx : 4;
+  const anI  = acctNumIdx  >= 0 ? acctNumIdx  : 5;
+  const adI  = acctDescIdx >= 0 ? acctDescIdx : 6;
+
+  // Find debit/credit columns: look for numeric cols after position 7
+  let dI = debIdx, cI = crdIdx;
+  if (dI < 0 || cI < 0) {
+    for (let ci=7; ci<headers.length; ci++) {
+      const h = norm(headers[ci]);
+      if (h.includes('debit') && dI<0) dI=ci;
+      if (h.includes('credit') && cI<0) cI=ci;
+    }
+  }
+  if (dI < 0) dI = Math.max(8, headers.length-2);
+  if (cI < 0) cI = Math.max(9, headers.length-1);
+
+  const output = [];
+  const jeMap  = {};
+
+  for (const row of dataRows) {
+    if (!row || row.every(c=>c===''||c===null)) continue;
+    const jeNum  = String(row[jI]||'').trim();
+    const acctN  = String(row[anI]||'').trim();
+    const acctD  = String(row[adI]||'').trim();
+    if (!jeNum && !acctD) continue;
+
+    let deb = parseNum(row[dI]);
+    let crd = parseNum(row[cI]);
+    // AgilLink sometimes uses negative values as credits
+    if (deb < 0) { crd = Math.abs(deb); deb = 0; }
+    if (crd < 0) { deb = Math.abs(crd); crd = 0; }
+    if (deb===0 && crd===0) continue;
+
+    const acctFull = acctN ? `${acctN} - ${acctD}` : acctD;
+    const outRow = {
+      'JE Number':        jeNum,
+      'Transaction Date': fmtDate(row[dtI]),
+      'Description':      String(row[dsI]||''),
+      'Account Full Name':acctFull,
+      'Debit':            deb||'',
+      'Credit':           crd||'',
+      'Vendor':           '',
+      'Account':          '',
+      'Account Codes':    '',
+      'Tags':             '',
+      'Entity':           entity
+    };
+
+    const mapped = lookupMapping(entity, acctD, acctN);
+    if (mapped) {
+      outRow['Account']       = mapped['Mapped Account Number']||'';
+      outRow['Account Codes'] = mapped['Mapped Account Code']||'';
+    }
+
+    if (!jeMap[jeNum]) jeMap[jeNum]={deb:0,crd:0};
+    jeMap[jeNum].deb += deb;
+    jeMap[jeNum].crd += crd;
+    output.push(outRow);
+  }
+
+  const errors = Object.entries(jeMap).filter(([,v])=>Math.abs(v.deb-v.crd)>0.01);
+  let msg = `✅ Processed ${output.length} rows across ${Object.keys(jeMap).length} JEs.`;
+  if (errors.length) msg += ` ⚠️ ${errors.length} JE(s) out of balance.`;
+
+  agOutputRows = output;
+  document.getElementById('ag-result-status').textContent = msg;
+  document.getElementById('ag-result').classList.remove('hidden');
+  document.getElementById('ag-result').scrollIntoView({behavior:'smooth'});
+}
+
+document.getElementById('ag-dl-xlsx').addEventListener('click',()=>downloadOutputXlsx(agOutputRows,'AgilLink_Converted.xlsx'));
+document.getElementById('ag-dl-tags').addEventListener('click',()=>downloadTags(agOutputRows,'AgilLink_Tags.csv'));
+document.getElementById('ag-dl-codes').addEventListener('click',()=>downloadCodes(agOutputRows,'AgilLink_AccountCodes.csv'));
+
+// ═══════════════════════════════════════════════════════
+// Download helpers
+// ═══════════════════════════════════════════════════════
+function downloadOutputXlsx(rows, filename) {
+  if (!rows.length) { alert('No data to download.'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows, { header: OUT_COLS });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Journal Entries');
+  XLSX.writeFile(wb, filename);
+}
+
+function downloadTags(rows, filename) {
+  const tags = [...new Set(rows.map(r=>r['Vendor']).filter(Boolean))];
+  const csv  = 'Tag\n' + tags.join('\n');
+  dlBlob(csv, 'text/csv', filename);
+}
+
+function downloadCodes(rows, filename) {
+  const codes = [...new Set(rows.map(r=>r['Account Codes']).filter(Boolean))];
+  const csv   = 'Account Code\n' + codes.join('\n');
+  dlBlob(csv, 'text/csv', filename);
+}
+
+function dlBlob(content, type, filename) {
+  const blob = new Blob([content],{type});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════
+// Drag & Drop setup helper
+// ═══════════════════════════════════════════════════════
+function setupDrop(dropId, inputId, handler) {
+  const zone = document.getElementById(dropId);
+  zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', ()=> zone.classList.remove('over'));
+  zone.addEventListener('drop', e=>{
+    e.preventDefault(); zone.classList.remove('over');
+    if (e.dataTransfer.files[0]) handler(e.dataTransfer.files[0]);
+  });
+}
+</script>
+</body>
+</html>

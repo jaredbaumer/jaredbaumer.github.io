@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SumIt — Internal Tools Hub</title>
+  <style>
+    :root {
+      --primary:   #0F4C81;
+      --accent:    #00A878;
+      --light-bg:  #EEF7F3;
+      --dark-text: #1A202C;
+      --muted:     #718096;
+      --border:    #CBD5E0;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #F0F4F8;
+      color: var(--dark-text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--primary);
+      padding: 0 40px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(0,0,0,.3);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-mark {
+      width: 38px;
+      height: 38px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -.5px;
+    }
+    .logo-text {
+      font-size: 20px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: -.2px;
+    }
+    .logo-sub {
+      font-size: 11px;
+      color: rgba(255,255,255,.55);
+      margin-top: 1px;
+    }
+    .header-right {
+      font-size: 12px;
+      color: rgba(255,255,255,.5);
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--primary) 0%, #1a6db5 100%);
+      padding: 52px 40px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .hero h1 {
+      font-size: 30px;
+      font-weight: 800;
+      color: white;
+      position: relative;
+      margin-bottom: 10px;
+    }
+    .hero p {
+      font-size: 15px;
+      color: rgba(255,255,255,.7);
+      position: relative;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .hero-badge span { color: var(--accent); }
+
+    /* ── Apps grid ── */
+    .apps-section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .apps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    /* ── App Card ── */
+    .app-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 22px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: box-shadow .2s, transform .2s, border-color .2s;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+      overflow: hidden;
+    }
+    .app-card:hover {
+      box-shadow: 0 8px 30px rgba(0,0,0,.12);
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+    .app-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .app-card:hover::before { opacity: 1; }
+
+    .app-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .icon-blue   { background: #DBEAFE; }
+    .icon-green  { background: var(--light-bg); }
+    .icon-purple { background: #EDE9FE; }
+
+    .app-info { flex: 1; }
+    .app-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--dark-text);
+      margin-bottom: 5px;
+    }
+    .app-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .app-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      background: var(--light-bg);
+      color: var(--primary);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 12px;
+      letter-spacing: .02em;
+    }
+
+    .app-launch {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+    }
+    .launch-btn {
+      background: var(--accent);
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background .15s;
+    }
+    .launch-btn:hover { background: #009b6d; }
+    .launch-arrow { font-size: 14px; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+
+    /* ── Agents banner ── */
+    .agents-note {
+      background: white;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .agents-note strong { color: var(--dark-text); }
+    .agents-note code { background: #F7FAFC; padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--primary); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">S</div>
+    <div>
+      <div class="logo-text">SumIt</div>
+      <div class="logo-sub">Internal Tools</div>
+    </div>
+  </div>
+  <div class="header-right">Customer Success · v1.0</div>
+</header>
+
+<section class="hero">
+  <div class="hero-badge"><span>●</span> Customer Success Team</div>
+  <h1>Internal Tools Hub</h1>
+  <p>Browser-based tools for journal entry conversions, reconciliations, and client onboarding workflows.</p>
+</section>
+
+<div class="apps-section">
+  <div class="section-label">Available Tools</div>
+
+  <div class="apps-grid">
+
+    <!-- K-1 Converter -->
+    <a class="app-card" href="apps/k1-converter/index.html">
+      <div class="app-icon icon-blue">📄</div>
+      <div class="app-info">
+        <div class="app-name">K-1 Journal Entry Converter</div>
+        <div class="app-desc">
+          Convert K-1 CSV exports into formatted journal entry rows ready for SumIt import.
+          Includes 6 automated QA checks and a filterable output preview.
+        </div>
+      </div>
+      <div class="app-tags">
+        <span class="tag">CSV → JE</span>
+        <span class="tag">QA Checks</span>
+        <span class="tag">K-1</span>
+      </div>
+      <div class="app-launch">
+        <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
+        <a class="launch-btn" href="apps/k1-converter/index.html">Open <span class="launch-arrow">→</span></a>
+      </div>
+    </a>
+
+    <!-- Inter-Entity -->
+    <a class="app-card" href="apps/inter-entity/index.html">
+      <div class="app-icon icon-green">⚖️</div>
+      <div class="app-info">
+        <div class="app-name">Inter-Entity Reconciliation</div>
+        <div class="app-desc">
+          Reconcile Due To / Due From balances across entity pairs from a journal register CSV.
+          Highlights mismatches and provides a date-level drilldown.
+        </div>
+      </div>
+      <div class="app-tags">
+        <span class="tag">Reconciliation</span>
+        <span class="tag">Inter-Entity</span>
+        <span class="tag">Due To / From</span>
+      </div>
+      <div class="app-launch">
+        <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
+        <a class="launch-btn" href="apps/inter-entity/index.html">Open <span class="launch-arrow">→</span></a>
+      </div>
+    </a>
+
+    <!-- QBO Converter -->
+    <a class="app-card" href="apps/qbo-converter/index.html">
+      <div class="app-icon icon-purple">🔄</div>
+      <div class="app-info">
+        <div class="app-name">QBO Journal Converter</div>
+        <div class="app-desc">
+          Convert QuickBooks Online and AgilLink journal exports to SumIt format with
+          optional UCOA account mapping. Outputs Excel with tags and account codes.
+        </div>
+      </div>
+      <div class="app-tags">
+        <span class="tag">QBO</span>
+        <span class="tag">AgilLink</span>
+        <span class="tag">UCOA Mapping</span>
+        <span class="tag">Excel → Excel</span>
+      </div>
+      <div class="app-launch">
+        <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
+        <a class="launch-btn" href="apps/qbo-converter/index.html">Open <span class="launch-arrow">→</span></a>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="agents-note">
+    <div style="font-size:18px;flex-shrink:0">🤖</div>
+    <div>
+      <strong>AI Agent Access</strong> — Claude and other agents can discover available tools
+      programmatically via <code>apps.json</code> in the root of this hub.
+      Each app URL is stable and navigable without authentication.
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>SumIt Software · Customer Success Team · Internal use only</p>
+</footer>
+
+</body>
+</html>

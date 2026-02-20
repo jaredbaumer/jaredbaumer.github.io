@@ -142,9 +142,13 @@
       margin: 0;
       padding: 0;
     }
-    .apps-grid li { margin: 0; padding: 0; }
+    .apps-grid li {
+      margin: 0;
+      padding: 0;
+      aspect-ratio: 1 / 1;
+    }
 
-    /* ── App Card ── */
+    /* ── App Card (square) ── */
     .app-card {
       background: white;
       border: 1px solid var(--border);
@@ -158,6 +162,9 @@
       color: inherit;
       position: relative;
       overflow: hidden;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
     }
     .app-card:hover {
       box-shadow: 0 8px 30px rgba(0,0,0,.12);
@@ -189,18 +196,46 @@
     .icon-green  { background: var(--light-bg); }
     .icon-purple { background: #EDE9FE; }
 
-    .app-info { flex: 1; }
+    .app-info {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
     .app-name {
       font-size: 15px;
       font-weight: 700;
       color: var(--dark-text);
       margin-bottom: 5px;
+      flex-shrink: 0;
+    }
+    .app-desc-wrap {
+      flex: 1;
+      min-height: 0;
     }
     .app-desc {
       font-size: 12px;
       color: var(--muted);
       line-height: 1.5;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 4;
+      line-clamp: 4;
     }
+    .show-more-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 0;
+      margin-top: 4px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .show-more-btn:hover { color: #009b6d; }
 
     .app-tags {
       display: flex;
@@ -265,6 +300,57 @@
     }
     .agents-note strong { color: var(--dark-text); }
     .agents-note code { background: #F7FAFC; padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--primary); }
+
+    /* ── Detail popup ── */
+    .detail-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .detail-overlay.is-open { display: flex; }
+    .detail-popup {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+      max-width: 400px;
+      width: 100%;
+      max-height: 80vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .detail-popup h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--dark-text);
+      padding: 20px 20px 8px;
+      flex-shrink: 0;
+    }
+    .detail-popup .detail-body {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+      padding: 8px 20px 20px;
+      overflow-y: auto;
+    }
+    .detail-popup .detail-close {
+      align-self: flex-end;
+      margin: 12px 20px 20px;
+      background: var(--border);
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--dark-text);
+      cursor: pointer;
+    }
+    .detail-popup .detail-close:hover { background: #CBD5E0; }
   </style>
 </head>
 <body>
@@ -296,9 +382,12 @@
           <div class="app-icon icon-blue">📄</div>
           <div class="app-info">
             <div class="app-name">K-1 Journal Entry Converter</div>
-            <div class="app-desc">
-              Convert K-1 CSV exports into formatted journal entry rows ready for SumIt import.
-              Includes 6 automated QA checks and a filterable output preview.
+            <div class="app-desc-wrap">
+              <div class="app-desc" data-full-text="Convert K-1 CSV exports into formatted journal entry rows ready for SumIt import. Includes 6 automated QA checks and a filterable output preview.">
+                Convert K-1 CSV exports into formatted journal entry rows ready for SumIt import.
+                Includes 6 automated QA checks and a filterable output preview.
+              </div>
+              <button type="button" class="show-more-btn" aria-label="Show full description">Show more</button>
             </div>
           </div>
           <div class="app-tags">
@@ -317,9 +406,12 @@
           <div class="app-icon icon-green">⚖️</div>
           <div class="app-info">
             <div class="app-name">Inter-Entity Reconciliation</div>
-            <div class="app-desc">
-              Reconcile Due To / Due From balances across entity pairs from a journal register CSV.
-              Highlights mismatches and provides a date-level drilldown.
+            <div class="app-desc-wrap">
+              <div class="app-desc" data-full-text="Reconcile Due To / Due From balances across entity pairs from a journal register CSV. Highlights mismatches and provides a date-level drilldown.">
+                Reconcile Due To / Due From balances across entity pairs from a journal register CSV.
+                Highlights mismatches and provides a date-level drilldown.
+              </div>
+              <button type="button" class="show-more-btn" aria-label="Show full description">Show more</button>
             </div>
           </div>
           <div class="app-tags">
@@ -350,6 +442,14 @@
   <p>SumIt Software · Customer Success Team · Internal use only</p>
 </footer>
 
+<div class="detail-overlay" id="detail-overlay" aria-hidden="true">
+  <div class="detail-popup" role="dialog" aria-labelledby="detail-popup-title" aria-modal="true">
+    <h3 id="detail-popup-title"></h3>
+    <div class="detail-body"></div>
+    <button type="button" class="detail-close" id="detail-close">Close</button>
+  </div>
+</div>
+
 <script>
 (function () {
   var iconMap = {
@@ -357,42 +457,112 @@
     'inter-entity':    { icon: '⚖️', class: 'icon-green' }
   };
   var grid = document.getElementById('apps-grid');
-  if (!grid) return;
-  fetch('apps.json')
-    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-    .then(function (data) {
-      if (!data.apps || !data.apps.length) return;
-      var fragment = document.createDocumentFragment();
-      data.apps.forEach(function (app) {
-        var meta = iconMap[app.id] || { icon: '📄', class: 'icon-purple' };
-        var tags = (app.tags || []).slice(0, 4).map(function (t) {
-          return '<span class="tag">' + escapeHtml(t) + '</span>';
-        }).join('');
-        var li = document.createElement('li');
-        li.innerHTML =
-          '<a class="app-card" href="' + escapeHtml(app.path) + '" aria-label="Open ' + escapeHtml(app.name) + '">' +
-            '<div class="app-icon ' + escapeHtml(meta.class) + '">' + escapeHtml(meta.icon) + '</div>' +
-            '<div class="app-info">' +
-              '<div class="app-name">' + escapeHtml(app.name) + '</div>' +
-              '<div class="app-desc">' + escapeHtml(app.description) + '</div>' +
-            '</div>' +
-            '<div class="app-tags">' + tags + '</div>' +
-            '<div class="app-launch">' +
-              '<span style="font-size:11px;color:var(--muted)">No file storage · session only</span>' +
-              '<span class="launch-btn">Open <span class="launch-arrow">→</span></span>' +
-            '</div>' +
-          '</a>';
-        fragment.appendChild(li);
-      });
-      grid.innerHTML = '';
-      grid.appendChild(fragment);
-    })
-    .catch(function () { /* leave static fallback in place */ });
+  var overlay = document.getElementById('detail-overlay');
+  var popupTitle = document.getElementById('detail-popup-title');
+  var popupBody = document.querySelector('.detail-popup .detail-body');
+  var detailClose = document.getElementById('detail-close');
+
   function escapeHtml(s) {
     if (s == null) return '';
     var div = document.createElement('div');
     div.textContent = s;
     return div.innerHTML;
+  }
+
+  function showDetailPopup(name, fullText) {
+    if (!popupTitle || !popupBody || !overlay) return;
+    popupTitle.textContent = name;
+    popupBody.textContent = fullText;
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeDetailPopup() {
+    if (!overlay) return;
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  function updateShowMoreVisibility() {
+    if (!grid) return;
+    grid.querySelectorAll('.app-desc').forEach(function (desc) {
+      var wrap = desc.closest('.app-desc-wrap');
+      var btn = wrap ? wrap.querySelector('.show-more-btn') : null;
+      if (!btn) return;
+      btn.style.display = desc.scrollHeight > desc.clientHeight ? 'inline-block' : 'none';
+    });
+  }
+
+  if (grid) {
+    grid.addEventListener('click', function (e) {
+      var btn = e.target.closest('.show-more-btn');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var card = btn.closest('.app-card');
+      var nameEl = card ? card.querySelector('.app-name') : null;
+      var descEl = card ? card.querySelector('.app-desc[data-full-text]') : null;
+      var fullText = descEl ? (descEl.getAttribute('data-full-text') || descEl.textContent) : '';
+      var name = nameEl ? nameEl.textContent : 'Details';
+      showDetailPopup(name, fullText);
+    });
+  }
+
+  if (detailClose) detailClose.addEventListener('click', closeDetailPopup);
+  if (overlay) {
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeDetailPopup();
+    });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && overlay && overlay.classList.contains('is-open')) closeDetailPopup();
+  });
+
+  if (grid) {
+    fetch('apps.json')
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (data) {
+        if (!data.apps || !data.apps.length) return;
+        var fragment = document.createDocumentFragment();
+        data.apps.forEach(function (app) {
+          var meta = iconMap[app.id] || { icon: '📄', class: 'icon-purple' };
+          var tags = (app.tags || []).slice(0, 4).map(function (t) {
+            return '<span class="tag">' + escapeHtml(t) + '</span>';
+          }).join('');
+          var desc = escapeHtml(app.description);
+          var descAttr = (app.description || '').replace(/"/g, '&quot;');
+          var li = document.createElement('li');
+          li.innerHTML =
+            '<a class="app-card" href="' + escapeHtml(app.path) + '" aria-label="Open ' + escapeHtml(app.name) + '">' +
+              '<div class="app-icon ' + escapeHtml(meta.class) + '">' + escapeHtml(meta.icon) + '</div>' +
+              '<div class="app-info">' +
+                '<div class="app-name">' + escapeHtml(app.name) + '</div>' +
+                '<div class="app-desc-wrap">' +
+                  '<div class="app-desc" data-full-text="' + descAttr + '">' + desc + '</div>' +
+                  '<button type="button" class="show-more-btn" aria-label="Show full description">Show more</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="app-tags">' + tags + '</div>' +
+              '<div class="app-launch">' +
+                '<span style="font-size:11px;color:var(--muted)">No file storage · session only</span>' +
+                '<span class="launch-btn">Open <span class="launch-arrow">→</span></span>' +
+              '</div>' +
+            '</a>';
+          fragment.appendChild(li);
+        });
+        grid.innerHTML = '';
+        grid.appendChild(fragment);
+        updateShowMoreVisibility();
+      })
+      .catch(function () {
+        updateShowMoreVisibility();
+      });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateShowMoreVisibility);
+  } else {
+    updateShowMoreVisibility();
   }
 })();
 </script>

@@ -138,7 +138,11 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 20px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
     }
+    .apps-grid li { margin: 0; padding: 0; }
 
     /* ── App Card ── */
     .app-card {
@@ -283,53 +287,76 @@
 </section>
 
 <div class="apps-section">
-  <div class="section-label">Available Tools</div>
+  <section aria-label="Available tools">
+    <div class="section-label">Available Tools</div>
 
-  <div class="apps-grid">
-
-    <!-- K-1 Converter -->
-    <a class="app-card" href="apps/k1-converter/index.html">
-      <div class="app-icon icon-blue">📄</div>
-      <div class="app-info">
-        <div class="app-name">K-1 Journal Entry Converter</div>
-        <div class="app-desc">
-          Convert K-1 CSV exports into formatted journal entry rows ready for SumIt import.
-          Includes 6 automated QA checks and a filterable output preview.
-        </div>
-      </div>
-      <div class="app-tags">
-        <span class="tag">CSV → JE</span>
-        <span class="tag">QA Checks</span>
-        <span class="tag">K-1</span>
-      </div>
-      <div class="app-launch">
-        <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
-        <a class="launch-btn" href="apps/k1-converter/index.html">Open <span class="launch-arrow">→</span></a>
-      </div>
-    </a>
-
-    <!-- Inter-Entity -->
-    <a class="app-card" href="apps/inter-entity/index.html">
-      <div class="app-icon icon-green">⚖️</div>
-      <div class="app-info">
-        <div class="app-name">Inter-Entity Reconciliation</div>
-        <div class="app-desc">
-          Reconcile Due To / Due From balances across entity pairs from a journal register CSV.
-          Highlights mismatches and provides a date-level drilldown.
-        </div>
-      </div>
-      <div class="app-tags">
-        <span class="tag">Reconciliation</span>
-        <span class="tag">Inter-Entity</span>
-        <span class="tag">Due To / From</span>
-      </div>
-      <div class="app-launch">
-        <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
-        <a class="launch-btn" href="apps/inter-entity/index.html">Open <span class="launch-arrow">→</span></a>
-      </div>
-    </a>
-
-  </div>
+    <ul class="apps-grid" id="apps-grid">
+      <li>
+        <a class="app-card" href="apps/k1-converter/index.html" aria-label="Open K-1 Journal Entry Converter">
+          <div class="app-icon icon-blue">📄</div>
+          <div class="app-info">
+            <div class="app-name">K-1 Journal Entry Converter</div>
+            <div class="app-desc">
+              Convert K-1 CSV exports into formatted journal entry rows ready for SumIt import.
+              Includes 6 automated QA checks and a filterable output preview.
+            </div>
+          </div>
+          <div class="app-tags">
+            <span class="tag">CSV → JE</span>
+            <span class="tag">QA Checks</span>
+            <span class="tag">K-1</span>
+          </div>
+          <div class="app-launch">
+            <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
+            <span class="launch-btn">Open <span class="launch-arrow">→</span></span>
+          </div>
+        </a>
+      </li>
+      <li>
+        <a class="app-card" href="apps/inter-entity/index.html" aria-label="Open Inter-Entity Reconciliation">
+          <div class="app-icon icon-green">⚖️</div>
+          <div class="app-info">
+            <div class="app-name">Inter-Entity Reconciliation</div>
+            <div class="app-desc">
+              Reconcile Due To / Due From balances across entity pairs from a journal register CSV.
+              Highlights mismatches and provides a date-level drilldown.
+            </div>
+          </div>
+          <div class="app-tags">
+            <span class="tag">Reconciliation</span>
+            <span class="tag">Inter-Entity</span>
+            <span class="tag">Due To / From</span>
+          </div>
+          <div class="app-launch">
+            <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
+            <span class="launch-btn">Open <span class="launch-arrow">→</span></span>
+          </div>
+        </a>
+      </li>
+      <li>
+        <a class="app-card" href="apps/qbo-converter/index.html" aria-label="Open QBO Journal Converter">
+          <div class="app-icon icon-purple">📊</div>
+          <div class="app-info">
+            <div class="app-name">QBO Journal Converter</div>
+            <div class="app-desc">
+              Converts QBO and AgilLink journal Excel files into SumIt import format.
+              Optional UCOA mapping; exports Tags and Account Codes CSV.
+            </div>
+          </div>
+          <div class="app-tags">
+            <span class="tag">QBO</span>
+            <span class="tag">AgilLink</span>
+            <span class="tag">Excel</span>
+            <span class="tag">UCOA</span>
+          </div>
+          <div class="app-launch">
+            <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
+            <span class="launch-btn">Open <span class="launch-arrow">→</span></span>
+          </div>
+        </a>
+      </li>
+    </ul>
+  </section>
 
   <div class="agents-note">
     <div style="font-size:18px;flex-shrink:0">🤖</div>
@@ -344,6 +371,54 @@
 <footer>
   <p>SumIt Software · Customer Success Team · Internal use only</p>
 </footer>
+
+<script>
+(function () {
+  var iconMap = {
+    'k1-converter':     { icon: '📄', class: 'icon-blue' },
+    'inter-entity':    { icon: '⚖️', class: 'icon-green' },
+    'qbo-converter':   { icon: '📊', class: 'icon-purple' }
+  };
+  var grid = document.getElementById('apps-grid');
+  if (!grid) return;
+  fetch('apps.json')
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (data) {
+      if (!data.apps || !data.apps.length) return;
+      var fragment = document.createDocumentFragment();
+      data.apps.forEach(function (app) {
+        var meta = iconMap[app.id] || { icon: '📄', class: 'icon-purple' };
+        var tags = (app.tags || []).slice(0, 4).map(function (t) {
+          return '<span class="tag">' + escapeHtml(t) + '</span>';
+        }).join('');
+        var li = document.createElement('li');
+        li.innerHTML =
+          '<a class="app-card" href="' + escapeHtml(app.path) + '" aria-label="Open ' + escapeHtml(app.name) + '">' +
+            '<div class="app-icon ' + escapeHtml(meta.class) + '">' + escapeHtml(meta.icon) + '</div>' +
+            '<div class="app-info">' +
+              '<div class="app-name">' + escapeHtml(app.name) + '</div>' +
+              '<div class="app-desc">' + escapeHtml(app.description) + '</div>' +
+            '</div>' +
+            '<div class="app-tags">' + tags + '</div>' +
+            '<div class="app-launch">' +
+              '<span style="font-size:11px;color:var(--muted)">No file storage · session only</span>' +
+              '<span class="launch-btn">Open <span class="launch-arrow">→</span></span>' +
+            '</div>' +
+          '</a>';
+        fragment.appendChild(li);
+      });
+      grid.innerHTML = '';
+      grid.appendChild(fragment);
+    })
+    .catch(function () { /* leave static fallback in place */ });
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+})();
+</script>
 
 </body>
 </html>

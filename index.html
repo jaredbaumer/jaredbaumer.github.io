@@ -333,28 +333,6 @@
           </div>
         </a>
       </li>
-      <li>
-        <a class="app-card" href="apps/qbo-converter/index.html" aria-label="Open QBO Journal Converter">
-          <div class="app-icon icon-purple">📊</div>
-          <div class="app-info">
-            <div class="app-name">QBO Journal Converter</div>
-            <div class="app-desc">
-              Converts QBO and AgilLink journal Excel files into SumIt import format.
-              Optional UCOA mapping; exports Tags and Account Codes CSV.
-            </div>
-          </div>
-          <div class="app-tags">
-            <span class="tag">QBO</span>
-            <span class="tag">AgilLink</span>
-            <span class="tag">Excel</span>
-            <span class="tag">UCOA</span>
-          </div>
-          <div class="app-launch">
-            <span style="font-size:11px;color:var(--muted)">No file storage · session only</span>
-            <span class="launch-btn">Open <span class="launch-arrow">→</span></span>
-          </div>
-        </a>
-      </li>
     </ul>
   </section>
 
@@ -376,8 +354,7 @@
 (function () {
   var iconMap = {
     'k1-converter':     { icon: '📄', class: 'icon-blue' },
-    'inter-entity':    { icon: '⚖️', class: 'icon-green' },
-    'qbo-converter':   { icon: '📊', class: 'icon-purple' }
+    'inter-entity':    { icon: '⚖️', class: 'icon-green' }
   };
   var grid = document.getElementById('apps-grid');
   if (!grid) return;
